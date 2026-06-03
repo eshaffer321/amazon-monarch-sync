@@ -28,7 +28,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/eshaffer321/amazon-monarch-sync.git",
+    "directory": "mcp-server"
+  },
+  "homepage": "https://github.com/eshaffer321/amazon-monarch-sync#readme",
+  "bugs": {
+    "url": "https://github.com/eshaffer321/amazon-monarch-sync/issues"
   },
   "engines": {
     "node": ">=18.0.0"
