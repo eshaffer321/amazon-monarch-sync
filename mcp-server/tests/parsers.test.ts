@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { parseItems, parseOrderSummary } from "../src/scrapers/parsers.js";
+import { parseItems, parseOrderSummary, parseDigitalItems } from "../src/scrapers/parsers.js";
+import { toISODate, extractLast4, isDateInRange } from "../src/utils/patterns.js";
 
 describe("parseOrderSummary", () => {
   it("should extract order summary from page text", () => {
@@ -54,7 +55,7 @@ Buy it again
     expect(items).toHaveLength(1);
     expect(items[0].name).toContain("Connoisseurs Premium Edition");
     expect(items[0].price).toBe("$9.99");
-    expect(items[0].quantity).toBe("1");
+    expect(items[0].quantity).toBe(1);
   });
 
   it("should extract multiple items", () => {
@@ -108,5 +109,95 @@ $5.00
     const items = parseItems(pageText);
 
     expect(items).toHaveLength(0);
+  });
+});
+
+describe("parseDigitalItems", () => {
+  it("should parse Kindle purchases", () => {
+    const pageText = `
+Digital Order: Kindle
+Your Kindle purchase
+Order Total: $9.99
+    `;
+
+    const items = parseDigitalItems(pageText, "$9.99");
+
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe("Kindle Purchase");
+    expect(items[0].price).toBe("$9.99");
+    expect(items[0].quantity).toBe(1);
+  });
+
+  it("should parse Prime Video purchases", () => {
+    const pageText = `
+Prime Video rental
+Your video purchase
+    `;
+
+    const items = parseDigitalItems(pageText, "$3.99");
+
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe("Prime Video");
+    expect(items[0].price).toBe("$3.99");
+  });
+
+  it("should return empty for non-digital orders", () => {
+    const pageText = `
+Physical product order
+Shipped via UPS
+    `;
+
+    const items = parseDigitalItems(pageText, "$19.99");
+
+    expect(items).toHaveLength(0);
+  });
+});
+
+describe("toISODate", () => {
+  it("should convert Amazon date format to ISO", () => {
+    expect(toISODate("November 24, 2024")).toBe("2024-11-24");
+    expect(toISODate("January 5, 2024")).toBe("2024-01-05");
+    expect(toISODate("December 31, 2023")).toBe("2023-12-31");
+  });
+
+  it("should return original string for invalid format", () => {
+    expect(toISODate("invalid date")).toBe("invalid date");
+    expect(toISODate("2024-01-01")).toBe("2024-01-01");
+  });
+});
+
+describe("extractLast4", () => {
+  it("should extract last 4 digits with asterisks", () => {
+    expect(extractLast4("****1234")).toBe("1234");
+    expect(extractLast4("Visa ****5678")).toBe("5678");
+  });
+
+  it("should extract last 4 digits with 'ending in'", () => {
+    expect(extractLast4("Visa ending in 1234")).toBe("1234");
+    expect(extractLast4("Card ending in 9999")).toBe("9999");
+  });
+
+  it("should return empty string when no match", () => {
+    expect(extractLast4("Some random text")).toBe("");
+    expect(extractLast4("")).toBe("");
+  });
+});
+
+describe("isDateInRange", () => {
+  it("should return true when date is in range", () => {
+    expect(isDateInRange("2024-06-15", "2024-01-01", "2024-12-31")).toBe(true);
+    expect(isDateInRange("2024-01-01", "2024-01-01", "2024-12-31")).toBe(true);
+    expect(isDateInRange("2024-12-31", "2024-01-01", "2024-12-31")).toBe(true);
+  });
+
+  it("should return false when date is out of range", () => {
+    expect(isDateInRange("2023-12-31", "2024-01-01", "2024-12-31")).toBe(false);
+    expect(isDateInRange("2025-01-01", "2024-01-01", "2024-12-31")).toBe(false);
+  });
+
+  it("should handle partial ranges", () => {
+    expect(isDateInRange("2024-06-15", "2024-01-01")).toBe(true);
+    expect(isDateInRange("2024-06-15", undefined, "2024-12-31")).toBe(true);
+    expect(isDateInRange("2024-06-15")).toBe(true);
   });
 });

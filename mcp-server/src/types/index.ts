@@ -5,19 +5,20 @@
 export interface OrderItem {
   name: string;
   price: string;
-  quantity: string;
+  quantity: number;
 }
 
 export interface Transaction {
-  date: string;
+  date: string; // ISO format: YYYY-MM-DD
   amount: string;
   type: "charge" | "refund" | "payment" | "credit";
+  last4: string; // Last 4 digits of card
   description: string;
 }
 
 export interface Order {
   orderId: string;
-  orderDate: string;
+  orderDate: string; // ISO format: YYYY-MM-DD
   total: string;
   subtotal: string;
   tax: string;
@@ -25,6 +26,22 @@ export interface Order {
   items: OrderItem[];
   transactions: Transaction[];
   transactionsUrl?: string;
+}
+
+/**
+ * CLI options
+ */
+export interface CLIOptions {
+  year?: string;
+  since?: string; // ISO date
+  until?: string; // ISO date
+  days?: number;
+  output?: string;
+  stdout?: boolean;
+  includePending?: boolean;
+  profile?: string; // Profile name for multi-account support
+  login?: boolean; // Interactive login mode
+  headless?: boolean; // Run browser in headless mode
 }
 
 export interface OrderSummary {

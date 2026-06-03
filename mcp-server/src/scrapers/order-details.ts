@@ -1,7 +1,8 @@
 import type { Page } from "playwright";
 import type { Order, OrderSummary } from "../types/index.js";
-import { parseItems, parseOrderSummary } from "./parsers.js";
+import { parseItems, parseOrderSummary, parseDigitalItems } from "./parsers.js";
 import { scrapeTransactions } from "./transactions.js";
+import { toISODate } from "../utils/patterns.js";
 
 /**
  * Scrape detailed order information from an order details page
@@ -12,7 +13,7 @@ export async function scrapeOrderDetails(
 ): Promise<Order> {
   const order: Order = {
     orderId: summary.orderId,
-    orderDate: summary.orderDate,
+    orderDate: toISODate(summary.orderDate),
     total: summary.total,
     subtotal: "",
     tax: "",
@@ -60,13 +61,21 @@ export async function scrapeOrderDetails(
     order.total = summaryParsed.total;
   }
 
-  // Parse items
+  // Parse items - try regular items first, then digital
   order.items = parseItems(details.pageText);
+
+  // If no items found, try digital order parsing
+  if (order.items.length === 0) {
+    order.items = parseDigitalItems(details.pageText, order.total);
+  }
 
   // Get transaction details if available
   if (details.transactionsUrl) {
     order.transactionsUrl = details.transactionsUrl;
-    order.transactions = await scrapeTransactions(page, details.transactionsUrl);
+    order.transactions = await scrapeTransactions(
+      page,
+      details.transactionsUrl
+    );
   }
 
   return order;

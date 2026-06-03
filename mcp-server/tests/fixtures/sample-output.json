@@ -1,0 +1,94 @@
+{
+  "orders": [
+    {
+      "orderId": "111-1234567-8901234",
+      "orderDate": "2024-11-24",
+      "total": "$44.91",
+      "subtotal": "$42.37",
+      "tax": "$2.54",
+      "shipping": "$0.00",
+      "items": [
+        {
+          "name": "Connoisseurs Premium Edition Silver Jewelry Cleaner Solution for Sterling Silver - 9.6 fl oz",
+          "price": "$9.99",
+          "quantity": 1
+        },
+        {
+          "name": "Loritta 3-Pieces Winter Hat Neck Warmer Touchscreen Gloves Set Knit Thick Scarf Beanie Hat",
+          "price": "$14.99",
+          "quantity": 1
+        },
+        {
+          "name": "ORALER Fuzzy Socks Gifts for Women - Cozy Fluffy Winter Soft Warm Plush Slipper Socks",
+          "price": "$6.99",
+          "quantity": 1
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2024-11-24",
+          "amount": "$44.91",
+          "type": "charge",
+          "last4": "1234",
+          "description": "Visa ending in 1234 - charged $44.91"
+        }
+      ],
+      "transactionsUrl": "https://www.amazon.com/gp/css/summary/print.html?orderID=111-1234567-8901234"
+    },
+    {
+      "orderId": "112-9876543-2109876",
+      "orderDate": "2024-11-20",
+      "total": "$9.99",
+      "subtotal": "$9.99",
+      "tax": "$0.00",
+      "shipping": "$0.00",
+      "items": [
+        {
+          "name": "Kindle Purchase",
+          "price": "$9.99",
+          "quantity": 1
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2024-11-20",
+          "amount": "$9.99",
+          "type": "charge",
+          "last4": "5678",
+          "description": "Mastercard ending in 5678 - charged $9.99"
+        }
+      ]
+    },
+    {
+      "orderId": "113-5555555-1111111",
+      "orderDate": "2024-11-15",
+      "total": "$29.99",
+      "subtotal": "$27.99",
+      "tax": "$2.00",
+      "shipping": "$0.00",
+      "items": [
+        {
+          "name": "Example Product That Was Refunded",
+          "price": "$27.99",
+          "quantity": 1
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2024-11-15",
+          "amount": "$29.99",
+          "type": "charge",
+          "last4": "1234",
+          "description": "Visa ending in 1234 - charged $29.99"
+        },
+        {
+          "date": "2024-11-18",
+          "amount": "$29.99",
+          "type": "refund",
+          "last4": "1234",
+          "description": "Refund to Visa ending in 1234"
+        }
+      ]
+    }
+  ]
+}

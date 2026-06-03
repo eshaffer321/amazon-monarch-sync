@@ -90,13 +90,49 @@ export function parseItems(pageText: string): OrderItem[] {
         items.push({
           name: itemName.substring(0, 200),
           price,
-          quantity: "1",
+          quantity: 1,
         });
       }
     }
   }
 
   return items;
+}
+
+/**
+ * Parse items for digital orders (Kindle, Prime Video, etc.)
+ * These don't have "Sold by:" pattern
+ */
+export function parseDigitalItems(
+  pageText: string,
+  orderTotal: string
+): OrderItem[] {
+  // Check for digital purchase patterns
+  const digitalPatterns = [
+    /Kindle/i,
+    /Prime Video/i,
+    /Amazon Music/i,
+    /Audible/i,
+    /Digital Order/i,
+  ];
+
+  const isDigital = digitalPatterns.some((p) => p.test(pageText));
+  if (!isDigital) return [];
+
+  // Try to find specific digital item name
+  let itemName = "Digital Purchase";
+  if (/Kindle/i.test(pageText)) itemName = "Kindle Purchase";
+  else if (/Prime Video/i.test(pageText)) itemName = "Prime Video";
+  else if (/Amazon Music/i.test(pageText)) itemName = "Amazon Music";
+  else if (/Audible/i.test(pageText)) itemName = "Audible";
+
+  return [
+    {
+      name: itemName,
+      price: orderTotal,
+      quantity: 1,
+    },
+  ];
 }
 
 /**

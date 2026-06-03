@@ -1,7 +1,12 @@
 import { chromium, type BrowserContext, type Page } from "playwright";
-import { DEFAULT_CONFIG } from "./config.js";
+import { DEFAULT_CONFIG, getProfileDataDir } from "./config.js";
 import { BrowserError } from "../utils/errors.js";
 import type { BrowserConfig } from "../types/index.js";
+
+export interface BrowserInitOptions {
+  profile?: string;
+  headless?: boolean;
+}
 
 /**
  * Manages Playwright browser lifecycle with persistent context
@@ -64,6 +69,27 @@ export class BrowserClient {
   }
 
   /**
+   * Wait for user to complete login (up to timeout)
+   * Returns true if login succeeded, false if timed out
+   */
+  async waitForLogin(page: Page, timeoutMs: number = 120000): Promise<boolean> {
+    const startTime = Date.now();
+    const checkInterval = 2000;
+
+    while (Date.now() - startTime < timeoutMs) {
+      // Check if we're no longer on a login page
+      const stillOnLogin = await this.isLoginRequired(page);
+      if (!stillOnLogin) {
+        // Give the page a moment to fully load after login
+        await page.waitForTimeout(2000);
+        return true;
+      }
+      await page.waitForTimeout(checkInterval);
+    }
+    return false;
+  }
+
+  /**
    * Close the browser and clean up
    */
   async close(): Promise<void> {
@@ -83,10 +109,33 @@ export class BrowserClient {
 
 // Singleton instance for the MCP server
 let browserClient: BrowserClient | null = null;
+let currentInitOptions: BrowserInitOptions = {};
+
+/**
+ * Initialize the browser client with specific options
+ * Must be called before getBrowserClient() if using custom profile/headless
+ */
+export function initBrowserClient(options: BrowserInitOptions): void {
+  // If client exists with different options, close it
+  if (browserClient) {
+    const needsReinit =
+      currentInitOptions.profile !== options.profile ||
+      currentInitOptions.headless !== options.headless;
+    if (needsReinit) {
+      browserClient.close();
+      browserClient = null;
+    }
+  }
+  currentInitOptions = options;
+}
 
 export function getBrowserClient(): BrowserClient {
   if (!browserClient) {
-    browserClient = new BrowserClient();
+    const config: Partial<BrowserConfig> = {
+      userDataDir: getProfileDataDir(currentInitOptions.profile),
+      headless: currentInitOptions.headless ?? false,
+    };
+    browserClient = new BrowserClient(config);
   }
   return browserClient;
 }

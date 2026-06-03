@@ -26,12 +26,18 @@ export async function fetchAmazonOrders(
 
     // Check if login is required
     if (await browser.isLoginRequired(page)) {
-      await page.close();
-      return {
-        success: false,
-        error: new LoginRequiredError().message,
-        needsLogin: true,
-      };
+      console.error("Login required - please log in to Amazon in the browser window (2 minute timeout)...");
+      const loggedIn = await browser.waitForLogin(page);
+      if (!loggedIn) {
+        await page.close();
+        return {
+          success: false,
+          error: new LoginRequiredError().message,
+          needsLogin: true,
+        };
+      }
+      // After login, navigate back to order history
+      await browser.navigateTo(page, AMAZON_URLS.orderHistory(year));
     }
 
     // Get order summaries from list page
@@ -77,6 +83,36 @@ export async function fetchAmazonOrders(
       success: false,
       error: e instanceof Error ? e.message : String(e),
     };
+  }
+}
+
+/**
+ * Interactive login - opens browser to Amazon and waits for user to log in
+ * Returns true if login succeeded, false if timed out
+ */
+export async function interactiveLogin(timeoutMs: number = 300000): Promise<boolean> {
+  const browser = getBrowserClient();
+  const page = await browser.newPage();
+
+  try {
+    // Navigate to Amazon order history (will redirect to login if needed)
+    await browser.navigateTo(page, AMAZON_URLS.orderHistory(new Date().getFullYear().toString()));
+
+    // Check if already logged in
+    if (!(await browser.isLoginRequired(page))) {
+      console.log("Already logged in!");
+      await page.close();
+      return true;
+    }
+
+    // Wait for login with extended timeout
+    console.log("Waiting for login...");
+    const loggedIn = await browser.waitForLogin(page, timeoutMs);
+    await page.close();
+    return loggedIn;
+  } catch (e) {
+    await page.close();
+    throw e;
   }
 }
 

@@ -1,4 +1,29 @@
+# Dependencies
 node_modules
+
+# Build output
 dist
+
+# OS
 .DS_Store
+
+# Local/env files
 *.local
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# npm package artifacts
+*.tgz
+
+# Browser profile data (contains session cookies!)
+/tmp/amazon-monarch-sync*

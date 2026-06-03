@@ -1,6 +1,11 @@
 import type { Page } from "playwright";
 import type { Transaction } from "../types/index.js";
-import { DATE_PATTERN, PRICE_PATTERN } from "../utils/patterns.js";
+import {
+  DATE_PATTERN,
+  PRICE_PATTERN,
+  LAST4_PATTERN,
+  toISODate,
+} from "../utils/patterns.js";
 
 /**
  * Scrape transaction/payment details from the transactions page
@@ -16,12 +21,13 @@ export async function scrapeTransactions(
     });
     await page.waitForTimeout(2000);
 
-    const transactions = await page.evaluate(
-      ({ datePattern, pricePattern }) => {
+    const rawTransactions = await page.evaluate(
+      ({ datePattern, pricePattern, last4Pattern }) => {
         const results: Array<{
           date: string;
           amount: string;
           type: string;
+          last4: string;
           description: string;
         }> = [];
 
@@ -34,12 +40,14 @@ export async function scrapeTransactions(
           const dateMatch = text.match(new RegExp(datePattern));
           const amountMatch = text.match(new RegExp(pricePattern));
           const typeMatch = text.match(/(charge|refund|payment|credit)/i);
+          const last4Match = text.match(new RegExp(last4Pattern, "i"));
 
           if (dateMatch && amountMatch) {
             results.push({
               date: dateMatch[0],
               amount: amountMatch[0],
               type: typeMatch ? typeMatch[1].toLowerCase() : "charge",
+              last4: last4Match ? last4Match[1] || last4Match[2] || "" : "",
               description: text.substring(0, 200).trim(),
             });
           }
@@ -50,10 +58,16 @@ export async function scrapeTransactions(
       {
         datePattern: DATE_PATTERN.source,
         pricePattern: PRICE_PATTERN.source,
+        last4Pattern: LAST4_PATTERN.source,
       }
     );
 
-    return transactions as Transaction[];
+    // Convert dates to ISO format
+    return rawTransactions.map((t) => ({
+      ...t,
+      date: toISODate(t.date),
+      type: t.type as Transaction["type"],
+    }));
   } catch (error) {
     console.error("Error fetching transactions:", error);
     return [];
