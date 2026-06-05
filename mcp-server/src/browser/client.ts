@@ -64,8 +64,17 @@ export class BrowserClient {
    * Check if Amazon login is required
    */
   async isLoginRequired(page: Page): Promise<boolean> {
-    const loginForm = await page.$('#ap_email, input[name="email"]');
-    return loginForm !== null;
+    try {
+      const loginForm = await page.$('#ap_email, input[name="email"]');
+      return loginForm !== null;
+    } catch (error) {
+      // Amazon often navigates while the login form is loading; treat that as
+      // a transient state so the polling loop can keep waiting.
+      if (error instanceof Error && error.message.includes("Execution context was destroyed")) {
+        return true;
+      }
+      throw error;
+    }
   }
 
   /**
@@ -78,7 +87,16 @@ export class BrowserClient {
 
     while (Date.now() - startTime < timeoutMs) {
       // Check if we're no longer on a login page
-      const stillOnLogin = await this.isLoginRequired(page);
+      let stillOnLogin = true;
+      try {
+        stillOnLogin = await this.isLoginRequired(page);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Execution context was destroyed")) {
+          stillOnLogin = true;
+        } else {
+          throw error;
+        }
+      }
       if (!stillOnLogin) {
         // Give the page a moment to fully load after login
         await page.waitForTimeout(2000);
