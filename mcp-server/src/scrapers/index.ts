@@ -17,40 +17,39 @@ export { scrapeTransactions } from "./transactions.js";
 export async function fetchAmazonOrders(
   year: string
 ): Promise<ScrapeResponse<FetchOrdersResult>> {
-  console.log(`[amazon-scraper] Starting order fetch for ${year}...`);
+  process.stderr.write(`[amazon-scraper] Starting order fetch for ${year}...\n`);
   const startTime = Date.now();
   const browser = getBrowserClient();
   const page = await browser.newPageAndNavigate(AMAZON_URLS.orderHistory(year));
 
   try {
-    console.log("[amazon-scraper] Navigated to Amazon order history");
+    const log = (msg: string) => process.stderr.write(`[amazon-scraper] ${msg}\n`);
+
+    log("Navigated to Amazon order history");
 
     // Check if login is required
     if (await browser.isLoginRequired(page)) {
-      console.log("[amazon-scraper] Login required - waiting for user authentication...");
+      log("Login required - waiting for user authentication...");
       const loggedIn = await browser.waitForLogin(page);
       if (!loggedIn) {
         await page.close();
-        console.error("[amazon-scraper] ✗ Login timed out");
+        log("✗ Login timed out");
         return {
           success: false,
           error: new LoginRequiredError().message,
           needsLogin: true,
         };
       }
-      console.log("[amazon-scraper] ✓ Login successful, continuing...");
-      // After login, navigate back to order history
+      log("✓ Login successful, continuing...");
       await browser.navigateTo(page, AMAZON_URLS.orderHistory(year));
     } else {
-      console.log("[amazon-scraper] Already authenticated");
+      log("Already authenticated");
     }
 
-    // Get order summaries from list page
-    console.log("[amazon-scraper] Fetching order list...");
+    log("Fetching order list...");
     const orderSummaries = await scrapeOrderList(page, year);
-    console.log(`[amazon-scraper] Found ${orderSummaries.length} orders`);
+    log(`Found ${orderSummaries.length} orders`);
 
-    // Fetch details for each order
     const orders: Order[] = [];
     const errors: string[] = [];
 
@@ -58,15 +57,14 @@ export async function fetchAmazonOrders(
       const summary = orderSummaries[i];
       const progress = `[${i + 1}/${orderSummaries.length}]`;
       try {
-        console.log(`${progress} Fetching details for order ${summary.orderId}...`);
+        log(`${progress} Fetching details for order ${summary.orderId}...`);
         const orderDetails = await scrapeOrderDetails(page, summary);
         orders.push(orderDetails);
-        console.log(`${progress} ✓ Extracted ${orderDetails.items.length} items`);
+        log(`${progress} ✓ Extracted ${orderDetails.items.length} items`);
       } catch (e) {
         const errorMsg = `Order ${summary.orderId}: ${e instanceof Error ? e.message : String(e)}`;
         errors.push(errorMsg);
-        console.error(`${progress} ✗ Failed: ${errorMsg}`);
-        // Still add basic order info even if details fail
+        log(`${progress} ✗ Failed: ${errorMsg}`);
         orders.push({
           orderId: summary.orderId,
           orderDate: summary.orderDate,
@@ -82,7 +80,7 @@ export async function fetchAmazonOrders(
 
     await page.close();
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[amazon-scraper] ✓ Complete: ${orders.length} orders in ${duration}s`);
+    log(`✓ Complete: ${orders.length} orders in ${duration}s`);
 
     return {
       success: true,
