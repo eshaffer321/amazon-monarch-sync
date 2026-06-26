@@ -1,23 +1,54 @@
 import type { BrowserConfig } from "../types/index.js";
+import { homedir } from "os";
+import { join } from "path";
+import { existsSync } from "fs";
 
-const BASE_DATA_DIR = process.env.BROWSER_DATA_DIR || "/tmp/amazon-monarch-sync";
+function getDefaultDataDir(): string {
+  // Use BROWSER_DATA_DIR env var if set, otherwise default to ~/.itemize/amazon
+  if (process.env.BROWSER_DATA_DIR) {
+    return process.env.BROWSER_DATA_DIR;
+  }
+  return join(homedir(), ".itemize", "amazon");
+}
+
+const BASE_DATA_DIR = getDefaultDataDir();
 
 /**
  * Get the browser data directory for a profile
  */
 export function getProfileDataDir(profile?: string): string {
   if (profile) {
-    return `${BASE_DATA_DIR}-${profile}`;
+    return join(BASE_DATA_DIR, profile);
   }
-  // Default profile uses legacy path for backwards compatibility
-  return `${BASE_DATA_DIR}-browser`;
+  // Default profile
+  return join(BASE_DATA_DIR, "default");
+}
+
+/**
+ * Check if a profile is already authenticated (profile directory exists)
+ */
+export function isProfileAuthenticated(profile?: string): boolean {
+  const profileDir = getProfileDataDir(profile);
+  return existsSync(profileDir);
+}
+
+/**
+ * Get default headless mode: auto-detect if profile exists, or use env var override
+ */
+export function getDefaultHeadlessMode(profile?: string): boolean {
+  // Explicit env var overrides everything
+  if (process.env.BROWSER_HEADLESS !== undefined) {
+    return process.env.BROWSER_HEADLESS === "true";
+  }
+  // Auto-detect: headless if profile already authenticated, non-headless if not
+  return isProfileAuthenticated(profile);
 }
 
 /**
  * Default browser configuration
  */
 export const DEFAULT_CONFIG: BrowserConfig = {
-  headless: false,
+  headless: false, // Will be overridden by client based on profile
   userDataDir: getProfileDataDir(),
   viewport: {
     width: 1280,
