@@ -175,6 +175,10 @@ export function getBrowserClient(): BrowserClient {
   return browserClient;
 }
 
+export function getCurrentProfile(): string | undefined {
+  return currentInitOptions.profile;
+}
+
 export async function closeBrowserClient(): Promise<void> {
   if (browserClient) {
     await browserClient.close();

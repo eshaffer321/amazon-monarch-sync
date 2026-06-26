@@ -1,6 +1,6 @@
 import type { Page } from "playwright";
 import type { Order, ScrapeResponse, FetchOrdersResult } from "../types/index.js";
-import { getBrowserClient } from "../browser/client.js";
+import { getBrowserClient, getCurrentProfile } from "../browser/client.js";
 import { AMAZON_URLS } from "../browser/config.js";
 import { LoginRequiredError, ScrapingError } from "../utils/errors.js";
 import { scrapeOrderList } from "./orders.js";
@@ -29,6 +29,17 @@ export async function fetchAmazonOrders(
 
     // Check if login is required
     if (await browser.isLoginRequired(page)) {
+      const config = browser.getConfig();
+      if (config.headless) {
+        await page.close();
+        const profile = getCurrentProfile();
+        log(`✗ Session expired — re-authenticate with: amazon-scraper --login${profile ? ` --profile ${profile}` : ""}`);
+        return {
+          success: false,
+          error: `Login required. Run: amazon-scraper --login${profile ? ` --profile ${profile}` : ""}`,
+          needsLogin: true,
+        };
+      }
       log("Login required - waiting for user authentication...");
       const loggedIn = await browser.waitForLogin(page);
       if (!loggedIn) {
