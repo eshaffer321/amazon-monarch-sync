@@ -1,5 +1,5 @@
 import { chromium, type BrowserContext, type Page } from "playwright";
-import { DEFAULT_CONFIG, getProfileDataDir } from "./config.js";
+import { DEFAULT_CONFIG, getProfileDataDir, getDefaultHeadlessMode } from "./config.js";
 import { BrowserError } from "../utils/errors.js";
 import type { BrowserConfig } from "../types/index.js";
 
@@ -47,6 +47,20 @@ export class BrowserClient {
   async newPage(): Promise<Page> {
     const context = await this.getContext();
     return context.newPage();
+  }
+
+  /**
+   * Create a new page and navigate to a URL immediately (avoids blank page flash)
+   */
+  async newPageAndNavigate(url: string): Promise<Page> {
+    const context = await this.getContext();
+    const page = await context.newPage();
+    await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: this.config.navigationTimeout,
+    });
+    await page.waitForTimeout(this.config.pageLoadDelay);
+    return page;
   }
 
   /**
@@ -151,7 +165,10 @@ export function getBrowserClient(): BrowserClient {
   if (!browserClient) {
     const config: Partial<BrowserConfig> = {
       userDataDir: getProfileDataDir(currentInitOptions.profile),
-      headless: currentInitOptions.headless ?? false,
+      headless:
+        currentInitOptions.headless !== undefined
+          ? currentInitOptions.headless
+          : getDefaultHeadlessMode(currentInitOptions.profile),
     };
     browserClient = new BrowserClient(config);
   }
