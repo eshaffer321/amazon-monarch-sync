@@ -177,7 +177,7 @@ async function runScraper(options: CLIOptions): Promise<void> {
   });
 
   try {
-    const result = await fetchAmazonOrders(year);
+    const result = await fetchAmazonOrders(year, { since, until });
 
     if (!result.success) {
       if ("needsLogin" in result && result.needsLogin) {
