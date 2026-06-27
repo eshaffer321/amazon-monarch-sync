@@ -85,6 +85,7 @@ export async function fetchAmazonOrders(
           tax: "",
           shipping: "",
           items: [],
+          shipments: [],
           transactions: [],
         });
       }

@@ -16,6 +16,12 @@ export interface Transaction {
   description: string;
 }
 
+export interface Shipment {
+  status: string;      // "Delivered", "Arriving", "Shipped"
+  date: string;        // ISO date from status line (delivery/arrival date)
+  items: OrderItem[];
+}
+
 export interface Order {
   orderId: string;
   orderDate: string; // ISO format: YYYY-MM-DD
@@ -23,7 +29,8 @@ export interface Order {
   subtotal: string;
   tax: string;
   shipping: string;
-  items: OrderItem[];
+  items: OrderItem[];          // flat list of all items (backward compat)
+  shipments: Shipment[];       // items grouped by shipment; [] if not parseable
   transactions: Transaction[];
   transactionsUrl?: string;
 }

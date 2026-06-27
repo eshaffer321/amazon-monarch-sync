@@ -1,6 +1,6 @@
 import type { Page } from "playwright";
 import type { Order, OrderSummary } from "../types/index.js";
-import { parseItems, parseOrderSummary, parseDigitalItems } from "./parsers.js";
+import { parseItems, parseOrderSummary, parseDigitalItems, parseShipments } from "./parsers.js";
 import { scrapeTransactions } from "./transactions.js";
 import { toISODate } from "../utils/patterns.js";
 
@@ -19,6 +19,7 @@ export async function scrapeOrderDetails(
     tax: "",
     shipping: "",
     items: [],
+    shipments: [],
     transactions: [],
   };
 
@@ -68,6 +69,9 @@ export async function scrapeOrderDetails(
   if (order.items.length === 0) {
     order.items = parseDigitalItems(details.pageText, order.total);
   }
+
+  // Parse items grouped by shipment section
+  order.shipments = parseShipments(details.pageText);
 
   // Get transaction details if available
   if (details.transactionsUrl) {

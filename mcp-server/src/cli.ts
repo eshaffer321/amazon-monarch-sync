@@ -151,19 +151,21 @@ async function runLogin(options: CLIOptions): Promise<void> {
     headless: false, // Always visible for login
   });
 
+  let exitCode = EXIT_ERROR;
   try {
     const success = await interactiveLogin();
     if (success) {
       console.log("\n✓ Login successful! Session saved.");
       console.log(`  Profile: ${options.profile || "default"}`);
-      process.exit(EXIT_SUCCESS);
+      exitCode = EXIT_SUCCESS;
     } else {
       console.error("\n✗ Login timed out or failed.");
-      process.exit(EXIT_LOGIN_REQUIRED);
+      exitCode = EXIT_LOGIN_REQUIRED;
     }
   } finally {
     await closeBrowserClient();
   }
+  process.exit(exitCode);
 }
 
 async function runScraper(options: CLIOptions): Promise<void> {
@@ -176,6 +178,7 @@ async function runScraper(options: CLIOptions): Promise<void> {
     headless: options.headless,
   });
 
+  let exitCode = EXIT_ERROR;
   try {
     const result = await fetchAmazonOrders(year, { since, until });
 
@@ -183,10 +186,11 @@ async function runScraper(options: CLIOptions): Promise<void> {
       if ("needsLogin" in result && result.needsLogin) {
         console.error("Error: Login required.");
         console.error(`Run: amazon-scraper --login${options.profile ? ` --profile ${options.profile}` : ""}`);
-        process.exit(EXIT_LOGIN_REQUIRED);
+        exitCode = EXIT_LOGIN_REQUIRED;
+        return;
       }
       console.error(`Error: ${result.error}`);
-      process.exit(EXIT_ERROR);
+      return;
     }
 
     // Filter by date range
@@ -207,13 +211,14 @@ async function runScraper(options: CLIOptions): Promise<void> {
       console.log(output);
     }
 
-    process.exit(EXIT_SUCCESS);
+    exitCode = EXIT_SUCCESS;
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    process.exit(EXIT_ERROR);
+    exitCode = EXIT_ERROR;
   } finally {
     await closeBrowserClient();
   }
+  process.exit(exitCode);
 }
 
 async function main(): Promise<void> {
