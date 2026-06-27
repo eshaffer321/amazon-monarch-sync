@@ -3,7 +3,7 @@ import type { Order, ScrapeResponse, FetchOrdersResult } from "../types/index.js
 import { getBrowserClient, getCurrentProfile } from "../browser/client.js";
 import { AMAZON_URLS } from "../browser/config.js";
 import { LoginRequiredError, ScrapingError } from "../utils/errors.js";
-import { scrapeOrderList } from "./orders.js";
+import { scrapeOrderList, type ScrapeOrderListOptions } from "./orders.js";
 import { scrapeOrderDetails } from "./order-details.js";
 
 export { parseItems, parseOrderSummary } from "./parsers.js";
@@ -15,7 +15,8 @@ export { scrapeTransactions } from "./transactions.js";
  * Main function to fetch all orders for a given year
  */
 export async function fetchAmazonOrders(
-  year: string
+  year: string,
+  options: ScrapeOrderListOptions = {}
 ): Promise<ScrapeResponse<FetchOrdersResult>> {
   process.stderr.write(`[amazon-scraper] Starting order fetch for ${year}...\n`);
   const startTime = Date.now();
@@ -58,7 +59,7 @@ export async function fetchAmazonOrders(
     }
 
     log("Fetching order list...");
-    const orderSummaries = await scrapeOrderList(page, year);
+    const orderSummaries = await scrapeOrderList(page, year, options);
     log(`Found ${orderSummaries.length} orders`);
 
     const orders: Order[] = [];

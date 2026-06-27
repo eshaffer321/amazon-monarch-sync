@@ -1,22 +1,102 @@
 import type { Page } from "playwright";
 import type { OrderSummary } from "../types/index.js";
 import { AMAZON_URLS } from "../browser/config.js";
-import { ORDER_ID_PATTERN, DATE_PATTERN, PRICE_PATTERN } from "../utils/patterns.js";
+import {
+  ORDER_ID_PATTERN,
+  DATE_PATTERN,
+  PRICE_PATTERN,
+  isDateInRange,
+  parseISODate,
+  toISODate,
+} from "../utils/patterns.js";
+
+const MAX_ORDER_HISTORY_PAGES = 50;
+
+interface OrderListPage {
+  orders: OrderSummary[];
+  nextUrl: string;
+}
+
+export interface ScrapeOrderListOptions {
+  since?: string;
+  until?: string;
+}
 
 /**
  * Scrape order summaries from the order history page
  */
 export async function scrapeOrderList(
   page: Page,
-  year: string
+  year: string,
+  options: ScrapeOrderListOptions = {}
 ): Promise<OrderSummary[]> {
-  await page.goto(AMAZON_URLS.orderHistory(year), {
-    waitUntil: "domcontentloaded",
-    timeout: 15000,
-  });
-  await page.waitForTimeout(2000);
+  const orderSummaries: OrderSummary[] = [];
+  const seenOrderIDs = new Set<string>();
+  const visitedUrls = new Set<string>();
+  let nextUrl = AMAZON_URLS.orderHistory(year);
 
-  const orderSummaries = await page.evaluate(
+  for (
+    let pageNumber = 0;
+    nextUrl && pageNumber < MAX_ORDER_HISTORY_PAGES;
+    pageNumber++
+  ) {
+    if (visitedUrls.has(nextUrl)) {
+      break;
+    }
+    visitedUrls.add(nextUrl);
+
+    await page.goto(nextUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: 15000,
+    });
+    await page.waitForTimeout(2000);
+
+    const currentPage = await scrapeCurrentOrderListPage(page);
+    for (const order of currentPage.orders) {
+      if (seenOrderIDs.has(order.orderId)) {
+        continue;
+      }
+      if (!isOrderInRange(order, options)) {
+        continue;
+      }
+      seenOrderIDs.add(order.orderId);
+      orderSummaries.push(order);
+    }
+
+    if (hasReachedBeforeSince(currentPage.orders, options.since)) {
+      break;
+    }
+    nextUrl = currentPage.nextUrl;
+  }
+
+  return orderSummaries;
+}
+
+function isOrderInRange(
+  order: OrderSummary,
+  options: ScrapeOrderListOptions
+): boolean {
+  return isDateInRange(toISODate(order.orderDate), options.since, options.until);
+}
+
+function hasReachedBeforeSince(orders: OrderSummary[], since?: string): boolean {
+  if (!since) {
+    return false;
+  }
+
+  const sinceDate = parseISODate(since);
+  for (const order of orders) {
+    const orderDate = parseISODate(toISODate(order.orderDate));
+    if (!Number.isNaN(orderDate.getTime()) && orderDate < sinceDate) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function scrapeCurrentOrderListPage(page: Page): Promise<OrderListPage> {
+  return page.evaluate(
     ({ orderIdPattern, datePattern, pricePattern }) => {
       const results: Array<{
         orderId: string;
@@ -68,7 +148,35 @@ export async function scrapeOrderList(
         }
       });
 
-      return results;
+      let nextUrl = "";
+      const paginationLinks = document.querySelectorAll("a[href]");
+      for (const link of paginationLinks) {
+        const anchor = link as HTMLAnchorElement;
+        const href = anchor.href || "";
+        const text = anchor.textContent?.trim().toLowerCase() || "";
+        const ariaLabel = anchor.getAttribute("aria-label")?.toLowerCase() || "";
+        const parentClass =
+          typeof anchor.parentElement?.className === "string"
+            ? anchor.parentElement.className.toLowerCase()
+            : "";
+        const disabled =
+          anchor.getAttribute("aria-disabled") === "true" ||
+          anchor.closest(".a-disabled, [aria-disabled='true']");
+
+        if (disabled || !href) {
+          continue;
+        }
+        if (
+          text === "next" ||
+          ariaLabel.includes("next") ||
+          parentClass.includes("a-last")
+        ) {
+          nextUrl = href;
+          break;
+        }
+      }
+
+      return { orders: results, nextUrl };
     },
     {
       orderIdPattern: ORDER_ID_PATTERN.source,
@@ -76,6 +184,4 @@ export async function scrapeOrderList(
       pricePattern: PRICE_PATTERN.source,
     }
   );
-
-  return orderSummaries;
 }
