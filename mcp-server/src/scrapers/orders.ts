@@ -45,9 +45,13 @@ export async function scrapeOrderList(
     }
     visitedUrls.add(nextUrl);
 
+    // Add a delay before each page (longer for later pages to avoid rate limiting)
+    if (pageNumber > 0) {
+      await page.waitForTimeout(2000 + pageNumber * 1000);
+    }
     await page.goto(nextUrl, {
       waitUntil: "domcontentloaded",
-      timeout: 15000,
+      timeout: 30000,
     });
     await page.waitForTimeout(2000);
 

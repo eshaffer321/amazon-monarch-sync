@@ -38,19 +38,20 @@ export async function scrapeOrderDetails(
   const details = await page.evaluate(() => {
     const pageText = document.body.innerText;
 
-    // Find transaction link
-    let transactionsUrl = "";
+    // Collect ALL transaction links — multi-delivery orders have one per shipment
+    const transactionUrls: string[] = [];
+    const seen = new Set<string>();
     const allLinks = document.querySelectorAll("a");
     for (const link of allLinks) {
       const text = link.textContent?.toLowerCase() || "";
       const href = link.href || "";
-      if (text.includes("transaction") || href.includes("transaction")) {
-        transactionsUrl = href;
-        break;
+      if ((text.includes("transaction") || href.includes("transaction")) && href && !seen.has(href)) {
+        seen.add(href);
+        transactionUrls.push(href);
       }
     }
 
-    return { pageText, transactionsUrl };
+    return { pageText, transactionUrls };
   });
 
   // Parse order summary
@@ -73,13 +74,20 @@ export async function scrapeOrderDetails(
   // Parse items grouped by shipment section
   order.shipments = parseShipments(details.pageText);
 
-  // Get transaction details if available
-  if (details.transactionsUrl) {
-    order.transactionsUrl = details.transactionsUrl;
-    order.transactions = await scrapeTransactions(
-      page,
-      details.transactionsUrl
-    );
+  // Get transaction details — scrape all links and merge, deduplicating by amount+date+last4
+  if (details.transactionUrls.length > 0) {
+    order.transactionsUrl = details.transactionUrls[0];
+    const seen = new Set<string>();
+    for (const url of details.transactionUrls) {
+      const txns = await scrapeTransactions(page, url);
+      for (const txn of txns) {
+        const key = `${txn.date}|${txn.amount}|${txn.last4}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          order.transactions.push(txn);
+        }
+      }
+    }
   }
 
   return order;
