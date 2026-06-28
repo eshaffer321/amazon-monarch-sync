@@ -33,15 +33,16 @@ export function isProfileAuthenticated(profile?: string): boolean {
 }
 
 /**
- * Get default headless mode: auto-detect if profile exists, or use env var override
+ * Get default headless mode.
+ * Defaults to false — Amazon detects and bot-flags headless Chromium, which
+ * invalidates sessions quickly. Pass --headless explicitly for cron/CI runs.
  */
-export function getDefaultHeadlessMode(profile?: string): boolean {
+export function getDefaultHeadlessMode(_profile?: string): boolean {
   // Explicit env var overrides everything
   if (process.env.BROWSER_HEADLESS !== undefined) {
     return process.env.BROWSER_HEADLESS === "true";
   }
-  // Auto-detect: headless if profile already authenticated, non-headless if not
-  return isProfileAuthenticated(profile);
+  return false;
 }
 
 /**

@@ -47,7 +47,7 @@ describe("scrapeOrderList", () => {
     expect(page.goto).toHaveBeenCalledTimes(2);
     expect(page.goto).toHaveBeenLastCalledWith(
       "https://www.amazon.com/gp/your-account/order-history?orderFilter=year-2026&startIndex=10",
-      { waitUntil: "domcontentloaded", timeout: 15000 }
+      { waitUntil: "domcontentloaded", timeout: 30000 }
     );
   });
 
