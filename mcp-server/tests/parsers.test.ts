@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseItems, parseOrderSummary, parseDigitalItems } from "../src/scrapers/parsers.js";
+import { parseItems, parseOrderSummary, parseDigitalItems, parseShipments } from "../src/scrapers/parsers.js";
 import { toISODate, extractLast4, isDateInRange } from "../src/utils/patterns.js";
 
 describe("parseOrderSummary", () => {
@@ -109,6 +109,34 @@ $5.00
     const items = parseItems(pageText);
 
     expect(items).toHaveLength(0);
+  });
+
+  it("should throw when refund status text is where an item name should be", () => {
+    const pageText = `
+Delivered June 29
+There's no need to return your item. Your refund has been issued.
+Sold by: Amazon.com
+$9.99
+$9.99
+Buy it again
+    `;
+
+    expect(() => parseItems(pageText)).toThrow("status/refund text");
+  });
+});
+
+describe("parseShipments", () => {
+  it("should throw when delivery status text is where a shipment item name should be", () => {
+    const pageText = `
+Delivered
+Your package was left near the front door or porch.
+Sold by: Amazon.com
+$9.99
+$9.99
+Buy it again
+    `;
+
+    expect(() => parseShipments(pageText)).toThrow("status/refund text");
   });
 });
 

@@ -187,31 +187,31 @@ async function runScraper(options: CLIOptions): Promise<void> {
         console.error("Error: Login required.");
         console.error(`Run: amazon-scraper --login${options.profile ? ` --profile ${options.profile}` : ""}`);
         exitCode = EXIT_LOGIN_REQUIRED;
-        return;
+      } else {
+        console.error(`Error: ${result.error}`);
+        exitCode = EXIT_ERROR;
       }
-      console.error(`Error: ${result.error}`);
-      return;
-    }
-
-    // Filter by date range
-    let orders = result.data.orders;
-    orders = filterOrdersByDate(orders, since, until);
-
-    // Filter out pending if not requested
-    if (!options.includePending) {
-      orders = orders.filter((o) => o.transactions.length > 0);
-    }
-
-    const output = JSON.stringify({ orders }, null, 2);
-
-    if (options.output) {
-      writeFileSync(options.output, output);
-      console.error(`Wrote ${orders.length} orders to ${options.output}`);
     } else {
-      console.log(output);
-    }
+      // Filter by date range
+      let orders = result.data.orders;
+      orders = filterOrdersByDate(orders, since, until);
 
-    exitCode = EXIT_SUCCESS;
+      // Filter out pending if not requested
+      if (!options.includePending) {
+        orders = orders.filter((o) => o.transactions.length > 0);
+      }
+
+      const output = JSON.stringify({ orders }, null, 2);
+
+      if (options.output) {
+        writeFileSync(options.output, output);
+        console.error(`Wrote ${orders.length} orders to ${options.output}`);
+      } else {
+        console.log(output);
+      }
+
+      exitCode = EXIT_SUCCESS;
+    }
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
     exitCode = EXIT_ERROR;

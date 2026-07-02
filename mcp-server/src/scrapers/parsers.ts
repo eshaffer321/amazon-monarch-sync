@@ -9,6 +9,7 @@ import {
   extractFirst,
   toISODate,
 } from "../utils/patterns.js";
+import { SuspiciousItemNameError } from "../utils/errors.js";
 
 /**
  * Parse order summary from page text
@@ -54,22 +55,7 @@ export function parseItems(pageText: string): OrderItem[] {
     // Look for "Sold by:" pattern - the item name is usually a few lines before
     if (line.startsWith("Sold by:")) {
       // Look backwards for the item name (skip short lines, delivery status, etc)
-      let itemName = "";
-      for (let j = i - 1; j >= Math.max(0, i - 5); j--) {
-        const prevLine = lines[j];
-        // Item names are typically long (> 30 chars) and don't match common patterns
-        if (
-          prevLine.length > 30 &&
-          !prevLine.match(
-            /^(Delivered|Arriving|Shipped|Your package|Return|Refund)/i
-          ) &&
-          !prevLine.match(/^\$/) &&
-          !seenNames.has(prevLine)
-        ) {
-          itemName = prevLine;
-          break;
-        }
-      }
+      const itemName = findItemNameBeforeSoldBy(lines, i, seenNames);
 
       // Look forward for the price (should be right after "Sold by:")
       let price = "";
@@ -99,6 +85,56 @@ export function parseItems(pageText: string): OrderItem[] {
   }
 
   return items;
+}
+
+function isProductNameCandidate(line: string, seenNames: Set<string>): boolean {
+  if (line.length <= 30 || seenNames.has(line)) {
+    return false;
+  }
+  if (line.match(/^\$/)) {
+    return false;
+  }
+  if (SHIPMENT_HEADER_PATTERN.test(line)) {
+    return false;
+  }
+
+  return !isAmazonStatusText(line);
+}
+
+function findItemNameBeforeSoldBy(
+  lines: string[],
+  soldByIndex: number,
+  seenNames: Set<string>
+): string {
+  let suspiciousLine = "";
+  for (let j = soldByIndex - 1; j >= Math.max(0, soldByIndex - 5); j--) {
+    const prevLine = lines[j];
+    if (isProductNameCandidate(prevLine, seenNames)) {
+      return prevLine;
+    }
+    if (!suspiciousLine && isAmazonStatusText(prevLine)) {
+      suspiciousLine = prevLine;
+    }
+  }
+
+  if (suspiciousLine) {
+    throw new SuspiciousItemNameError(lines[soldByIndex], suspiciousLine);
+  }
+
+  return "";
+}
+
+function isAmazonStatusText(line: string): boolean {
+  const normalized = line.toLowerCase();
+  return [
+    "your package",
+    "your return",
+    "no need to return",
+    "refund has been issued",
+    "return is in transit",
+    "left near the front door",
+    "front door or porch",
+  ].some((phrase) => normalized.includes(phrase));
 }
 
 /**
@@ -185,19 +221,7 @@ export function parseShipments(pageText: string): Shipment[] {
 
     // Item within current section
     if (line.startsWith("Sold by:") && current) {
-      let itemName = "";
-      for (let j = i - 1; j >= Math.max(0, i - 5); j--) {
-        const prevLine = lines[j];
-        if (
-          prevLine.length > 30 &&
-          !SHIPMENT_HEADER_PATTERN.test(prevLine) &&
-          !prevLine.match(/^\$/) &&
-          !seenNames.has(prevLine)
-        ) {
-          itemName = prevLine;
-          break;
-        }
-      }
+      const itemName = findItemNameBeforeSoldBy(lines, i, seenNames);
 
       let price = "";
       for (let j = i + 1; j < Math.min(lines.length, i + 5); j++) {

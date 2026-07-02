@@ -2,7 +2,7 @@ import type { Page } from "playwright";
 import type { Order, ScrapeResponse, FetchOrdersResult } from "../types/index.js";
 import { getBrowserClient, getCurrentProfile } from "../browser/client.js";
 import { AMAZON_URLS } from "../browser/config.js";
-import { LoginRequiredError, ScrapingError } from "../utils/errors.js";
+import { AmazonScraperError, LoginRequiredError, ScrapingError } from "../utils/errors.js";
 import { scrapeOrderList, type ScrapeOrderListOptions } from "./orders.js";
 import { scrapeOrderDetails } from "./order-details.js";
 
@@ -74,6 +74,9 @@ export async function fetchAmazonOrders(
         orders.push(orderDetails);
         log(`${progress} ✓ Extracted ${orderDetails.items.length} items`);
       } catch (e) {
+        if (shouldAbortOrderFetch(e)) {
+          throw e;
+        }
         const errorMsg = `Order ${summary.orderId}: ${e instanceof Error ? e.message : String(e)}`;
         errors.push(errorMsg);
         log(`${progress} ✗ Failed: ${errorMsg}`);
@@ -109,6 +112,10 @@ export async function fetchAmazonOrders(
       error: e instanceof Error ? e.message : String(e),
     };
   }
+}
+
+export function shouldAbortOrderFetch(error: unknown): boolean {
+  return error instanceof AmazonScraperError && error.code === "SUSPICIOUS_ITEM_NAME";
 }
 
 /**

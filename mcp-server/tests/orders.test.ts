@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Page } from "playwright";
 import { scrapeOrderList } from "../src/scrapers/orders.js";
+import { shouldAbortOrderFetch } from "../src/scrapers/index.js";
+import { ScrapingError, SuspiciousItemNameError } from "../src/utils/errors.js";
 
 describe("scrapeOrderList", () => {
   it("follows Amazon order-history pagination", async () => {
@@ -116,5 +118,21 @@ describe("scrapeOrderList", () => {
       "112-2222222-2222222",
     ]);
     expect(page.goto).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("shouldAbortOrderFetch", () => {
+  it("aborts on suspicious item-name parser errors only", () => {
+    expect(
+      shouldAbortOrderFetch(
+        new SuspiciousItemNameError(
+          "Sold by: Amazon.com",
+          "Your package was left near the front door or porch."
+        )
+      )
+    ).toBe(true);
+
+    expect(shouldAbortOrderFetch(new ScrapingError("temporary detail page failure"))).toBe(false);
+    expect(shouldAbortOrderFetch(new Error("plain error"))).toBe(false);
   });
 });
