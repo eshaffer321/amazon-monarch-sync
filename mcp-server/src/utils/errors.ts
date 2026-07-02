@@ -40,6 +40,17 @@ export class ScrapingError extends AmazonScraperError {
   }
 }
 
+export class SuspiciousItemNameError extends AmazonScraperError {
+  constructor(soldByLine: string, suspiciousLine: string) {
+    super(
+      `Amazon scraper found status/refund text where item name should be before "${soldByLine}": "${suspiciousLine}"`,
+      "SUSPICIOUS_ITEM_NAME",
+      { soldByLine, suspiciousLine }
+    );
+    this.name = "SuspiciousItemNameError";
+  }
+}
+
 export class BrowserError extends AmazonScraperError {
   constructor(message: string) {
     super(message, "BROWSER_ERROR");

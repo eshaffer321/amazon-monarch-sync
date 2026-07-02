@@ -38,6 +38,85 @@ export async function scrapeOrderDetails(
   const details = await page.evaluate(() => {
     const pageText = document.body.innerText;
 
+    const standalonePricePattern = /^\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?$/;
+    const shipmentHeaderPattern = /^(Delivered|Arriving|Shipped)\b/i;
+
+    function normalizeText(text: string | null | undefined): string {
+      return (text || "").replace(/\s+/g, " ").trim();
+    }
+
+    function extractItemsFromContainer(container: Element) {
+      const itemRoot = container;
+      const titleLinks = Array.from(
+        itemRoot.querySelectorAll<HTMLAnchorElement>("a[href*='/dp/']")
+      ).filter(
+        (link) =>
+          normalizeText(link.textContent).length > 30 &&
+          link.closest("[data-component='itemTitle']")
+      );
+
+      const lines = (itemRoot as HTMLElement).innerText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      let searchStart = 0;
+      return titleLinks.map((titleLink) => {
+        const name = normalizeText(titleLink.textContent);
+        const titleIndex = lines.findIndex(
+          (line, index) => index >= searchStart && normalizeText(line) === name
+        );
+        const priceIndex = lines.findIndex(
+          (line, index) =>
+            index > (titleIndex >= 0 ? titleIndex : searchStart) &&
+            standalonePricePattern.test(line)
+        );
+        if (priceIndex >= 0) {
+          searchStart = priceIndex + 1;
+        }
+
+        return {
+          name: name.substring(0, 200),
+          price: priceIndex >= 0 ? lines[priceIndex] : "",
+          quantity: 1,
+        };
+      });
+    }
+
+    const items = Array.from(
+      document.querySelectorAll("[data-component='purchasedItems']")
+    )
+      .flatMap(extractItemsFromContainer);
+
+    const shipments = Array.from(
+      document.querySelectorAll("[data-component='shipmentsLeftGrid']")
+    )
+      .map((shipmentEl) => {
+        const lines = (shipmentEl as HTMLElement).innerText
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean);
+        const header = lines.find((line) => shipmentHeaderPattern.test(line));
+        if (!header) {
+          return null;
+        }
+        const statusMatch = header.match(shipmentHeaderPattern);
+        const shipmentItems = Array.from(
+          shipmentEl.querySelectorAll("[data-component='purchasedItems']")
+        )
+          .flatMap(extractItemsFromContainer);
+
+        return {
+          status: statusMatch ? statusMatch[1] : header,
+          date: "",
+          items: shipmentItems,
+        };
+      })
+      .filter(
+        (shipment): shipment is NonNullable<typeof shipment> =>
+          shipment !== null && shipment.items.length > 0
+      );
+
     // Collect ALL transaction links — multi-delivery orders have one per shipment
     const transactionUrls: string[] = [];
     const seen = new Set<string>();
@@ -51,7 +130,7 @@ export async function scrapeOrderDetails(
       }
     }
 
-    return { pageText, transactionUrls };
+    return { pageText, transactionUrls, items, shipments };
   });
 
   // Parse order summary
@@ -64,7 +143,7 @@ export async function scrapeOrderDetails(
   }
 
   // Parse items - try regular items first, then digital
-  order.items = parseItems(details.pageText);
+  order.items = details.items.length > 0 ? details.items : parseItems(details.pageText);
 
   // If no items found, try digital order parsing
   if (order.items.length === 0) {
@@ -72,7 +151,8 @@ export async function scrapeOrderDetails(
   }
 
   // Parse items grouped by shipment section
-  order.shipments = parseShipments(details.pageText);
+  order.shipments =
+    details.shipments.length > 0 ? details.shipments : parseShipments(details.pageText);
 
   // Get transaction details — scrape all links and merge, deduplicating by amount+date+last4
   if (details.transactionUrls.length > 0) {
